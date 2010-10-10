@@ -1,3 +1,5 @@
+require File.expand_path('../test_helper', __FILE__)
+
 class ServiceTest < Test::Unit::TestCase
   def setup
   end

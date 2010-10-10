@@ -3,7 +3,7 @@ gem 'echoe'
 require 'echoe'
 
 Echoe.new("http_service") do |p|
-  p.author="markjeee"
+  p.author = "palmade"
   p.project = "palmade"
   p.summary = "HTTP Service"
 
@@ -17,7 +17,6 @@ Echoe.new("http_service") do |p|
 end
 
 task :test do
-
 end
 
 task :default => :test
