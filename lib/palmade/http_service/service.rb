@@ -58,18 +58,6 @@ module Palmade::HttpService
       @http = Curl::Easy.new
       @http.ssl_verify_peer = false
 
-      # this line requires the modified curb version found at:
-      # http://github.com/markjeee/curb
-      if @http.respond_to?(:use_easy_perform=)
-        @http.use_easy_perform = true
-      else
-        unless logger.nil?
-          warn "#{self.class.name} works best with the modified curb version by markjeee"
-        else
-          logger.warn { "#{self.class.name} works best with the modified curb version by markjeee" }
-        end
-      end
-
       @auth_type = nil
       @auth_credentials = nil
       @auth_params = { }
