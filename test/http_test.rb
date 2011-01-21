@@ -1,3 +1,5 @@
+require File.expand_path('../test_helper', __FILE__)
+
 class HttpTest < Test::Unit::TestCase
   def setup
   end

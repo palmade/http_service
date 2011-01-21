@@ -6,7 +6,10 @@ README
 Rakefile
 lib/palmade/http_service.rb
 lib/palmade/http_service/http.rb
+lib/palmade/http_service/patches.rb
+lib/palmade/http_service/patches/curb_request.rb
 lib/palmade/http_service/service.rb
 lib/palmade/http_service/utils.rb
 test/http_test.rb
+test/service_test.rb
 test/test_helper.rb

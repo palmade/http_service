@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# encoding: utf-8
+
 require 'uri'
 require 'cgi'
 require 'net/http'
@@ -5,7 +8,7 @@ require 'net/http'
 module Palmade::HttpService
   # this HTTP library, will use HTTP 1.1 by default!
   module Http
-    DEFAULT_HEADERS = {'Connection' => 'Close'}
+    DEFAULT_HEADERS = { 'Connection' => 'Close' }
 
     class HttpError < StandardError
       attr_reader :response
@@ -91,6 +94,10 @@ module Palmade::HttpService
         @code = code.to_i
         @message = message
         @headers = headers
+
+        if @body.respond_to?(:set_encoding) && !content_charset.nil?
+          @body.set_encoding(Encoding.find(content_charset) || 'BINARY')
+        end
       end
       def http_response?; true; end
 
@@ -119,6 +126,10 @@ module Palmade::HttpService
         !success?
       end
 
+      def read
+        @body.read
+      end
+
       def json_read
         Palmade::HttpService::Http.json_parse { @body.rewind; @body.read }
       end
@@ -132,30 +143,76 @@ module Palmade::HttpService
       end
 
       def last_modified
-        if defined?(@lm)
-          @lm
+        if defined?(@last_modified)
+          @last_modified
         else
           if headers.include?('Last-Modified')
-            @lm = headers['Last-Modified'].to_time
+            @last_modified = headers['Last-Modified'].to_time
           else
-            @lm = nil
+            @last_modified = nil
           end
         end
       end
 
       def content_length
-        if defined?(@cl)
-          @cl
+        if defined?(@content_length)
+          @content_length
         else
           if headers.include?('Content-Length')
             if headers['Content-Length'].is_a?(Array)
-              @cl = headers['Content-Length'].first.to_i
+              @content_length = headers['Content-Length'].first.to_i
             else
-              @cl = headers['Content-Length'].to_i
+              @content_length = headers['Content-Length'].to_i
             end
           else
-            @cl = nil
+            @content_length = nil
           end
+        end
+      end
+
+      def content_type
+        if defined?(@content_type)
+          @content_type
+        else
+          if headers.include?('Content-Type')
+            @content_type = headers['Content-Type']
+          else
+            @content_type = nil
+          end
+        end
+      end
+
+      def media_type
+        if defined?(@media_type)
+          @media_type
+        else
+          if content_type
+            @media_type = content_type.split(/\s*[;,]\s*/, 2).first.downcase
+          else
+            @media_type = nil
+          end
+        end
+      end
+
+      def media_type_params
+        if defined?(@media_type_params)
+          @media_type_params
+        else
+          if content_type
+            @media_type_params = content_type.split(/\s*[;,]\s*/)[1..-1].
+              collect { |s| s.split('=', 2) }.
+              inject({ }) { |hash,(k,v)| hash[k.downcase] = v ; hash }
+          else
+            @media_type_params = { }
+          end
+        end
+      end
+
+      def content_charset
+        if defined?(@content_charset)
+          @content_charset
+        else
+          @content_charset = media_type_params['charset']
         end
       end
     end
@@ -308,13 +365,31 @@ module Palmade::HttpService
         options[:headers].delete(:cookie)
       end
 
+      if options.include?(:charset_encoding)
+        charset_encoding = options[:charset_encoding]
+      else
+        charset_encoding = nil
+      end
+
       # set form post
       # TODO: support multipart post data (e.g. uploading files via POST)
       if meth == :post && options.include?(:query)
-        c.post_body = pb = convert_to_post_data(options[:query])
+        pb = convert_to_post_data(options[:query])
+
         unless options[:headers].include?("Content-Type")
-          options[:headers]["Content-Type"] = "application/x-www-form-urlencoded"
+          if !charset_encoding.nil?
+            post_encoding = charset_encoding
+            pb.force_encoding(Encoding.find(charset_encoding)) if pb.respond_to?(:force_encoding)
+          elsif pb.respond_to?(:encoding)
+            post_encoding = pb.encoding.name
+          else
+            post_encoding = 'ISO-8859-1'
+          end
+
+          options[:headers]["Content-Type"] = "application/x-www-form-urlencoded; charset=#{post_encoding}"
         end
+
+        c.post_body = pb
       else
         pb = nil
       end
@@ -390,20 +465,29 @@ module Palmade::HttpService
       block.call(:start, c, uri, options) if block_given?
 
       bd = io.nil? ? StringIO.new : io
+      bd.set_encoding('BINARY') if bd.respond_to?(:set_encoding)
 
       recvd = 0
-      c.on_body do |s|
-        wrtn = 0
-        if block_given?
+      if block_given?
+        c.on_body do |s|
           wrtn = block.call(:segment, s, c, uri, options)
-          wrtn = 0 if wrtn.nil_or_empty?
-        end
+          wrtn = 0 if wrtn.nil?
 
-        unless s.nil? || s.empty?
-          wrtn = bd.write(s) if wrtn == 0
-          recvd += wrtn
+          unless s.nil? || s.empty?
+            wrtn = bd.write(s) if wrtn == 0
+            recvd += wrtn
+          end
+          wrtn
         end
-        wrtn
+      else
+        c.on_body do |s|
+          wrtn = 0
+          unless s.nil? || s.empty?
+            wrtn = bd.write(s)
+            recvd += wrtn
+          end
+          wrtn
+        end
       end
 
       case meth
@@ -600,7 +684,7 @@ module Palmade::HttpService
       else
         yield
       end
-    end 
+    end
 
     # TODO: Investigate why OAuth uses a special code to encode
     # params, while Rack uses a different one!
