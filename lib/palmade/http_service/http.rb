@@ -349,6 +349,10 @@ module Palmade::HttpService
       c = Curl::Easy.new(uri.to_s)
       c.ssl_verify_peer = false
 
+      if options.include?(:verbose)
+        c.verbose = options[:verbose]
+      end
+
       block.call(:init, c, uri, options) if block_given?
 
       # set proxy settings, for this connection
