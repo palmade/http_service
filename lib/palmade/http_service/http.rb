@@ -443,6 +443,8 @@ module Palmade::HttpService
       unless options[:headers].include?("Authorization")
         # setup basic auth
         if options.include?(:basic_auth)
+          c.http_auth_types = :basic
+
           case options[:basic_auth]
           when Hash
             c.userpwd = "#{options[:basic_auth][:username]}:#{options[:basic_auth][:password]}"
@@ -451,7 +453,6 @@ module Palmade::HttpService
           else
             c.userpwd = "#{options[:basic_auth]}"
           end
-
         # add oauth authorization key
         elsif options.include?(:oauth_consumer) &&
             options.include?(:oauth_token)
