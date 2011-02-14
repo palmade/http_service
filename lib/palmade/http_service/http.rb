@@ -443,7 +443,7 @@ module Palmade::HttpService
       unless options[:headers].include?("Authorization")
         # setup basic auth
         if options.include?(:basic_auth)
-          c.http_auth_types = :basic
+          c.http_auth_types = [ :basic ]
 
           case options[:basic_auth]
           when Hash
