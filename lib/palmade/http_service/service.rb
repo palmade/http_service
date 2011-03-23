@@ -8,6 +8,7 @@ module Palmade::HttpService
   class Service
     class Response < Palmade::HttpService::Http::Response; end
     class UnsupportedScheme < StandardError; end
+    class OAuthEchoError < StandardError; end
 
     DEFAULT_HEADERS = {
       'Connection' => 'Keep-Alive',
@@ -23,13 +24,11 @@ module Palmade::HttpService
     attr_reader :headers
     attr_reader :base_url
     attr_reader :base_path
-
     attr_reader :auth_params
     attr_accessor :oauth_consumer
-
     attr_accessor :charset_encoding
-
     attr_writer :log_activity
+
     def log_activity(&block)
       if block_given?
         yield if log_activity?
@@ -66,6 +65,10 @@ module Palmade::HttpService
       @headers = DEFAULT_HEADERS.merge({ })
 
       @oauth_consumer = @options[:oauth_consumer]
+
+      # using oauth echo?
+      @oauth_echo_consumer_config = @options[:oauth_echo_consumer_config]
+      setup_oauth_echo if @oauth_echo_consumer_config
 
       # nil by default, unless user specified.
       @charset_encoding = nil
@@ -166,7 +169,24 @@ module Palmade::HttpService
       auth(oauth_token, oauth_secret, :oauth)
     end
 
+    # access token given to client
+    def oauth_echo_auth(token, secret)
+      auth(token, secret, :oauth_echo)
+    end
+
     protected
+
+    def setup_oauth_echo
+      oauth_config = @oauth_echo_consumer_config
+
+      @oauth_echo_consumer = ::OAuth::Consumer.new(oauth_config[:key], oauth_config[:secret], { :site => oauth_config[:site] })
+      @oauth_echo_auth_verification_url = oauth_config[:auth_verification_url]
+
+      Palmade::HttpService::Http.use_oauth
+
+      raise OauthEchoError, "OAuth echo @oauth_echo_consumer is nil" if @oauth_echo_consumer.nil?
+      raise OAuthEchoError, "OAuth echo @oauth_echo_auth_verification_url is nil" if @oauth_echo_auth_verification_url.nil?
+    end
 
     def auth(username, password = nil, scheme = :basic)
       case scheme
@@ -176,8 +196,11 @@ module Palmade::HttpService
       when :oauth, 'oauth'
         @auth_scheme = :oauth
         @auth_credentials = [ username, password ]
+      when :oauth_echo
+        @auth_scheme = scheme
+        @auth_credentials = [ username, password ]
       else
-        raise UnsupportedScheme, "Unsupported auth scheme. Supports only :basic, :oauth now."
+        raise UnsupportedScheme, "Unsupported auth scheme. Supports only :basic, :oauth, :oauth_echo now."
       end
     end
 
@@ -200,8 +223,27 @@ module Palmade::HttpService
                                                      :consumer => @oauth_consumer,
                                                      :token => oauth_token,
                                                      :request_uri => @http.url }.merge(@auth_params))
-
           @http.headers["Authorization"] = auth = oauth_helper.header
+        when :oauth_echo
+          raise OAuthEchoError, "OAuth echo @oauth_echo_consumer is nil" if @oauth_echo_consumer.nil?
+          raise OAuthEchoError, "OAuth echo @oauth_echo_auth_verification_url is nil" if @oauth_echo_auth_verification_url.nil?
+
+          oauth_token = ::OAuth::Token.new(@auth_credentials[0], @auth_credentials[1])
+
+          # mock http request so we could get the correct signature
+          # TODO: figure out why using OAuth::Client::Helper doesn't generate the correct signature
+          uri = URI.parse(@oauth_echo_auth_verification_url)
+          http = Net::HTTP.new(uri.host, uri.port)
+          request = Net::HTTP::Post.new(uri.request_uri)
+
+          request['Content-Type'] = 'application/x-www-form-urlencoded'
+          request.oauth!(http, @oauth_echo_consumer, oauth_token)
+          @http.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+          @http.headers["X-Verify-Credentials-Authorization"] = request['Authorization']
+          @http.headers["X-Auth-Service-Provider"] = @oauth_echo_auth_verification_url
+
+          http = nil
+          request = nil
         else
           # ignore
         end
