@@ -23,6 +23,10 @@ module Palmade::HttpService
       end
     end
 
+    def self.dont_use_curb!
+      @@use_curb = false
+    end
+
     def self.use_curb?
       if defined?(@@use_curb)
         @@use_curb
@@ -347,7 +351,12 @@ module Palmade::HttpService
       options = prepare_options(options)
 
       c = Curl::Easy.new(uri.to_s)
+      #c.verbose = true
       c.ssl_verify_peer = false
+
+      if options.include?(:verbose)
+        c.verbose = options[:verbose]
+      end
 
       block.call(:init, c, uri, options) if block_given?
 
@@ -439,6 +448,8 @@ module Palmade::HttpService
       unless options[:headers].include?("Authorization")
         # setup basic auth
         if options.include?(:basic_auth)
+          c.http_auth_types = [ :basic ]
+
           case options[:basic_auth]
           when Hash
             c.userpwd = "#{options[:basic_auth][:username]}:#{options[:basic_auth][:password]}"
@@ -447,7 +458,6 @@ module Palmade::HttpService
           else
             c.userpwd = "#{options[:basic_auth]}"
           end
-
         # add oauth authorization key
         elsif options.include?(:oauth_consumer) &&
             options.include?(:oauth_token)
