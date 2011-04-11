@@ -8,6 +8,7 @@ module Palmade::HttpService
   class Service
     class Response < Palmade::HttpService::Http::Response; end
     class UnsupportedScheme < StandardError; end
+    class OAuthError < StandardError; end
     class OAuthEchoError < StandardError; end
 
     DEFAULT_HEADERS = {
@@ -15,9 +16,7 @@ module Palmade::HttpService
       'Keep-Alive' => '300'
     }
 
-    DEFAULT_OPTIONS = {
-      :oauth_consumer => nil
-    }
+    DEFAULT_OPTIONS = { }
 
     attr_reader :http
     attr_reader :logger
@@ -25,7 +24,6 @@ module Palmade::HttpService
     attr_reader :base_url
     attr_reader :base_path
     attr_reader :auth_params
-    attr_accessor :oauth_consumer
     attr_accessor :charset_encoding
     attr_writer :log_activity
 
@@ -64,11 +62,13 @@ module Palmade::HttpService
       @logger = logger
       @headers = DEFAULT_HEADERS.merge({ })
 
-      @oauth_consumer = @options[:oauth_consumer]
+      # using oauth
+      @oauth_config = @options[:oauth_config]
+      setup_oauth if @oauth_config
 
       # using oauth echo?
-      @oauth_echo_consumer_config = @options[:oauth_echo_consumer_config]
-      setup_oauth_echo if @oauth_echo_consumer_config
+      @oauth_echo_config = @options[:oauth_echo_config]
+      setup_oauth_echo if @oauth_echo_config
 
       # nil by default, unless user specified.
       @charset_encoding = nil
@@ -176,16 +176,22 @@ module Palmade::HttpService
 
     protected
 
+    def setup_oauth
+      @oauth_consumer = create_oauth_consumer(@oauth_config)
+
+      raise OauthError, "OAuth echo @oauth_consumer is nil" if @oauth_consumer.nil?
+    end
+
     def setup_oauth_echo
-      oauth_config = @oauth_echo_consumer_config
-
-      @oauth_echo_consumer = ::OAuth::Consumer.new(oauth_config[:key], oauth_config[:secret], { :site => oauth_config[:site] })
-      @oauth_echo_auth_verification_url = oauth_config[:auth_verification_url]
-
-      Palmade::HttpService::Http.use_oauth
+      @oauth_echo_consumer = create_oauth_consumer(@oauth_echo_config)
+      @oauth_echo_auth_verification_url = @oauth_echo_config['auth_verification_url']
 
       raise OauthEchoError, "OAuth echo @oauth_echo_consumer is nil" if @oauth_echo_consumer.nil?
       raise OAuthEchoError, "OAuth echo @oauth_echo_auth_verification_url is nil" if @oauth_echo_auth_verification_url.nil?
+    end
+
+    def create_oauth_consumer(oauth_config)
+      ::OAuth::Consumer.new(oauth_config['consumer_key'], oauth_config['consumer_secret'], { :site => oauth_config['options']['site'] })
     end
 
     def auth(username, password = nil, scheme = :basic)
@@ -213,12 +219,10 @@ module Palmade::HttpService
           @http.http_auth_types = :basic or :any
           @http.userpwd = "#{@auth_credentials[0]}:#{@auth_credentials[1]}"
         when :oauth
-          @http.http_auth_types = :any
+          raise "OAuth consumer object not set (@oauth_consumer is nil)" if @oauth_consumer.nil?
 
-          raise "OAuth consumer object not set (@auth_consumer is nil)" if @auth_consumer.nil?
-
-          oauth_token = OAuth::Token.new(@auth_credentials[0], @auth_credentials[1])
-          oauth_helper = OAuth::Client::Helper.new(@http,
+          oauth_token = ::OAuth::Token.new(@auth_credentials[0], @auth_credentials[1])
+          oauth_helper = ::OAuth::Client::Helper.new(@http,
                                                    { :http_method => meth.to_s.upcase,
                                                      :consumer => @oauth_consumer,
                                                      :token => oauth_token,
