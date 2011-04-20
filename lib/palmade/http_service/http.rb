@@ -658,8 +658,25 @@ module Palmade::HttpService
       convert_to_post_data(params, sep)
     end
 
-    def self.convert_to_post_data(params, sep = '&')
-      params.map { |k,v| "#{escape(k.to_s)}=#{escape(v.to_s)}" }.join(sep)
+    def self.convert_to_post_data(params, sep = '&', namespace = nil)
+      post_data = []
+      params.each do |k,v|
+        if v.is_a?(Hash)
+          if namespace
+            post_data << convert_to_post_data(v, '&', "#{namespace}[#{k.to_s}]")
+          else
+            post_data << convert_to_post_data(v, '&', k.to_s)
+          end
+        else
+          if namespace
+            key = escape("#{namespace}[#{k.to_s}]")
+            post_data << "#{key}=#{escape(v.to_s)}"
+          else
+            post_data << "#{escape(k.to_s)}=#{escape((v.to_s))}"
+          end
+        end
+      end
+      post_data.join(sep)
     end
 
     def self.convert_to_cookie_string(cookies)
