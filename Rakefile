@@ -16,7 +16,8 @@ Echoe.new("http_service") do |p|
   p.rdoc_pattern = [ 'README', 'LICENSE', 'COPYING', 'lib/**/*.rb', 'doc/**/*.rdoc' ]
 end
 
-task :test do
-end
+gem 'rspec', '>= 2.5.0'
+require 'rspec/core/rake_task'
 
-task :default => :test
+RSpec::Core::RakeTask.new(:spec)
+task :default => :spec
