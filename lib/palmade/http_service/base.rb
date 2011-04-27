@@ -65,19 +65,19 @@ module Palmade::HttpService
     end
 
     def get(path, query = nil)
-      raise_on_error(@http_service.get_json(path, query))
+      wrap_response(@http_service.get_json(path, query))
     end
 
     def post(path, params = nil, query = nil)
-      raise_on_error(@http_service.post_json(path, params, query))
+      wrap_response(@http_service.post_json(path, params, query))
     end
 
     def put(path, content, query = nil)
-      raise_on_error(@http_service.put_json(path, content, query))
+      wrap_response(@http_service.put_json(path, content, query))
     end
 
     def delete(path, query = nil)
-      raise_on_error(@http_service.delete(path, query))
+      wrap_response(@http_service.delete(path, query))
     end
 
     def reset
@@ -86,8 +86,8 @@ module Palmade::HttpService
 
     protected
 
-    def raise_on_error(resp, &block)
-      sr = ServiceResponse.new(resp).ok!
+    def wrap_response(resp, &block)
+      sr = ServiceResponse.new(resp)
       if block_given?
         yield(sr)
       else

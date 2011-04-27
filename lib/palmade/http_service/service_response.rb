@@ -53,19 +53,34 @@ module Palmade::HttpService
     def ok?
       error.nil?
     end
+    alias :success? :ok?
 
     def ok!
       raise_error! if error?
       self
     end
 
-    def raise_error!
-      raise ServiceError.new(self)
+    def value
+      self.values.first
     end
+
+    def exception
+      if defined?(@exception)
+        @exception
+      else
+        @exception = ServiceError.new(self)
+      end
+    end
+
+    def raise_error!
+      raise exception
+    end
+    alias :raise! :raise_error!
 
     def error?
       !error.nil?
     end
+    alias :fail? :error?
 
     def error
       if self.include?('error')
@@ -82,9 +97,11 @@ module Palmade::HttpService
     def error_message
       error? ? error['message'] : nil
     end
+    alias :message :error_message
 
     def error_attachments
       error? ? error['attachments'] : nil
     end
+    alias :attachments :error_attachments
   end
 end
