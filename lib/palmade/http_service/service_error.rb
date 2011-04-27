@@ -8,7 +8,7 @@ module Palmade::HttpService
       @response = resp
     end
 
-    def code
+    def error_code
       @response.error_code
     end
 
@@ -17,3 +17,4 @@ module Palmade::HttpService
     end
   end
 end
+
