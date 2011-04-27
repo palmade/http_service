@@ -10,7 +10,6 @@ module Palmade
     autoload :Service, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/service')
     autoload :ServiceResponse, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/service_response')
     autoload :ServiceError, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/service_error')
-    autoload :CampoutControllerHelper, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/campout_controller_helper')
 
     autoload :Base, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/base')
 
