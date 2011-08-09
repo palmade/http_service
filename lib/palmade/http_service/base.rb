@@ -9,6 +9,7 @@ module Palmade::HttpService
     DEFAULT_API_CONFIG_KEY = 'api'.freeze
     DEFAULT_OAUTH_CONFIG_KEY = 'oauth'.freeze
     DEFAULT_OAUTH_ECHO_CONFIG_KEY = 'oauth_echo'.freeze
+    DEFAULT_ENCODING = 'UTF-8'.freeze
 
     DEFAULT_OPTIONS = { }
 
@@ -53,6 +54,9 @@ module Palmade::HttpService
         if api_config.include?('log_activity') && api_config['log_activity']
           @http_service.log_activity = true
         end
+
+        # set charset encoding
+        @http_service.charset_encoding = api_config['encoding'] || DEFAULT_ENCODING
       else
         raise "Missing configuration for API service, please check your config files."
       end
