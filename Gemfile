@@ -5,10 +5,14 @@ gemspec
 
 group :test do
   gem 'eventmachine', '>= 1.0.0.beta.4'
-  gem 'rack'
-  gem 'thin'
   gem 'em-zeromq'
   gem 'ffi-rzmq'
   gem 'ffi'
+  gem 'json'
+  gem 'daemons','>= 1.1.8'
+  gem 'thin'
+  gem 'rack'
+  gem 'rspec', '>= 2.5.0'
   gem 'yajl-ruby'
+  gem 'curb'
 end

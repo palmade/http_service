@@ -5,3 +5,12 @@ pkg/*
 .rspec
 coverage/*
 spec/logs/*
+*~
+~*
+.DS_Store
+*#
+#*
+.#*
+/pkg
+*.swo
+*.swp
