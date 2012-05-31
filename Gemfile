@@ -12,7 +12,7 @@ group :test do
   gem 'daemons','>= 1.1.8'
   gem 'thin'
   gem 'rack'
-  gem 'rspec', '>= 2.5.0'
+  gem 'rspec'
   gem 'yajl-ruby'
   gem 'curb'
 end
