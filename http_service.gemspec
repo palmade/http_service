@@ -14,6 +14,7 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = ['README', 'CHANGELOG', 'COPYING', 'LICENSE']
   s.rdoc_options     = ['--line-numbers', '--inline-source', '--title', 'http_service', '--main', 'README']
 
+  s.add_dependency 'curb'
   s.add_development_dependency 'rake'
 end
 

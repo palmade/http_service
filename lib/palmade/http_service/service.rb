@@ -5,6 +5,7 @@ require 'uri'
 require 'net/http'
 require 'benchmark'
 require 'stringio'
+require 'curb'
 
 module Palmade::HttpService
   class Service
