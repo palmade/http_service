@@ -15,6 +15,12 @@ Gem::Specification.new do |s|
   s.rdoc_options     = ['--line-numbers', '--inline-source', '--title', 'http_service', '--main', 'README']
 
   s.add_dependency 'curb'
-  s.add_development_dependency 'rake'
-end
 
+  s.add_development_dependency 'rspec'
+  s.add_development_dependency 'rake'
+  s.add_development_dependency 'rack'
+  s.add_development_dependency 'puppet_master'
+  s.add_development_dependency 'eventmachine'
+  s.add_development_dependency 'thin'
+  s.add_development_dependency 'yajl-ruby'
+end

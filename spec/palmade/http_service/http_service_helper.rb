@@ -6,14 +6,7 @@ CCYT
 
 $test_config = YAML.load(CONFIG_CARESHARING_YML_TEMPLATE)
 
-if ENV.include?('popo_path')
- POPO_PATH = ENV['popo_path']
- POPO_TARGET = ENV['popo_target']
-
- require File.join(ENV['popo_path'], 'frameworks/puppet_master/lib/palmade/puppet_master')
-else
- require File.expand_path(File.join('.', '../puppet_master/lib/palmade/puppet_master'))
-end
+require 'palmade/puppet_master'
 
 Master = Palmade::PuppetMaster::Master
 m = Master.new(:listen => ["0.0.0.0:3000"])
