@@ -10,8 +10,8 @@ module Palmade::HttpService
   module Http
     DEFAULT_HEADERS = { 'Connection' => 'Close' }
 
-    autoload :HttpError, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/http/http_error')
-    autoload :Response, File.join(HTTP_SERVICE_LIB_DIR, 'http_service/http/response')
+    autoload :HttpError, 'palmade/http_service/http/http_error'
+    autoload :Response,  'palmade/http_service/http/response'
 
     def self.dont_use_curb!
       @@use_curb = false
