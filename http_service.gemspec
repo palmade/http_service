@@ -1,26 +1,25 @@
 # -*- encoding: utf-8 -*-
-$:.push File.expand_path("../lib", __FILE__)
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'palmade/http_service/version'
 
-Gem::Specification.new do |s|
-  s.name        = 'http_service'
-  s.version     = '0.1'
-  s.authors     = ['Palmade']
-  s.summary     = 'HTTP Service'
-  s.description = 'Master of Puppets'
+Gem::Specification.new do |gem|
+  gem.name        = 'http_service'
+  gem.version     = Palmade::HttpService::VERSION
+  gem.authors     = ['Palmade']
+  gem.summary     = 'HTTP Service'
 
-  s.files            = `git ls-files`.split("\n")
-  s.test_files       = `git ls-files -- {test,spec,features}/*`.split("\n")
-  s.require_paths    = ['lib']
-  s.extra_rdoc_files = ['README', 'CHANGELOG', 'COPYING', 'LICENSE']
-  s.rdoc_options     = ['--line-numbers', '--inline-source', '--title', 'http_service', '--main', 'README']
+  gem.files       = `git ls-files`.split($/)
+  gem.executables = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
+  gem.test_files  = gem.files.grep(%r{^(test|spec|features)/})
 
-  s.add_dependency 'curb'
+  gem.add_dependency 'curb'
 
-  s.add_development_dependency 'rspec'
-  s.add_development_dependency 'rake'
-  s.add_development_dependency 'rack'
-  s.add_development_dependency 'puppet_master'
-  s.add_development_dependency 'eventmachine'
-  s.add_development_dependency 'thin'
-  s.add_development_dependency 'yajl-ruby'
+  gem.add_development_dependency 'rspec'
+  gem.add_development_dependency 'rake'
+  gem.add_development_dependency 'rack'
+  gem.add_development_dependency 'puppet_master'
+  gem.add_development_dependency 'eventmachine'
+  gem.add_development_dependency 'thin'
+  gem.add_development_dependency 'yajl-ruby'
 end

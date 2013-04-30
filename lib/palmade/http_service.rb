@@ -16,6 +16,8 @@ module Palmade
     autoload :Utils,           'palmade/http_service/utils'
     autoload :Patches,         'palmade/http_service/patches'
 
+    autoload :VERSION,         'palmade/http_service/version'
+
     class Error < StandardError; end
   end
 end
