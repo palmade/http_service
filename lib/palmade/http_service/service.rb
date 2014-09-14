@@ -2,32 +2,45 @@
 # encoding: utf-8
 
 require 'uri'
+require 'net/http'
 require 'benchmark'
+require 'stringio'
+require 'curb'
 
 module Palmade::HttpService
   class Service
     class Response < Palmade::HttpService::Http::Response; end
-    class UnsupportedScheme < StandardError; end
-    class OAuthEchoError < StandardError; end
+
+    class UnsupportedScheme < Palmade::HttpService::Error; end
+    class OAuthError < Palmade::HttpService::Error; end
+    class OAuthEchoError < Palmade::HttpService::Error; end
 
     DEFAULT_HEADERS = {
+      # try keep-alive by default, if server supports it.
       'Connection' => 'Keep-Alive',
+
+      # default keep-alive is 5 mins, if it's supported.
       'Keep-Alive' => '300'
     }
 
     DEFAULT_OPTIONS = {
-      :oauth_consumer => nil
+      :oauth_config => nil,
+      :oauth_echo_config => nil,
+      :ssl_verify_peer => false,
+      :default_headers => { }
     }
 
-    attr_reader :http
     attr_reader :logger
+    attr_writer :log_activity
+
+    attr_reader :http
     attr_reader :headers
+
     attr_reader :base_url
     attr_reader :base_path
+
     attr_reader :auth_params
-    attr_accessor :oauth_consumer
     attr_accessor :charset_encoding
-    attr_writer :log_activity
 
     def log_activity(&block)
       if block_given?
@@ -55,20 +68,22 @@ module Palmade::HttpService
       @base_path = [ nil, "", "/" ].include?(u.path) ? "/" : u.path
 
       @http = Curl::Easy.new
-      @http.ssl_verify_peer = false
+      @http.ssl_verify_peer = @options[:ssl_verify_peer] || false
 
       @auth_type = nil
       @auth_credentials = nil
       @auth_params = { }
 
       @logger = logger
-      @headers = DEFAULT_HEADERS.merge({ })
+      @headers = DEFAULT_HEADERS.merge(@options[:default_headers])
 
-      @oauth_consumer = @options[:oauth_consumer]
+      # using oauth
+      @oauth_config = @options[:oauth_config]
+      setup_oauth if @oauth_config
 
       # using oauth echo?
-      @oauth_echo_consumer_config = @options[:oauth_echo_consumer_config]
-      setup_oauth_echo if @oauth_echo_consumer_config
+      @oauth_echo_config = @options[:oauth_echo_config]
+      setup_oauth_echo if @oauth_echo_config
 
       # nil by default, unless user specified.
       @charset_encoding = nil
@@ -76,7 +91,7 @@ module Palmade::HttpService
 
     def get(path, query = nil, io = nil)
       url = File.join(@base_url, @base_path, path)
-      url += "?#{query_string(query)}" unless query.nil?
+      url += "?%s" % query_string(query) unless query.nil?
 
       if log_activity?
         resp = nil
@@ -93,13 +108,13 @@ module Palmade::HttpService
       if resp.success?
         resp.json_read
       else
-        resp.raise_http_error
+        resp
       end
     end
 
     def post(path, params = nil, query = nil, io = nil)
       url = File.join(@base_url, @base_path, path)
-      url += "?#{query_string(query)}" unless query.nil?
+      url += "?%s" % query_string(query) unless query.nil?
 
       if log_activity?
         resp = nil
@@ -116,13 +131,13 @@ module Palmade::HttpService
       if resp.success?
         resp.json_read
       else
-        resp.raise_http_error
+        resp
       end
     end
 
     def put(path, data, query = nil)
       url = File.join(@base_url, @base_path, path)
-      url += "?#{query_string(query)}" unless query.nil?
+      url += "?%s" % query_string(query) unless query.nil?
 
       if log_activity?
         resp = nil
@@ -139,13 +154,13 @@ module Palmade::HttpService
       if resp.success?
         resp.json_read
       else
-        resp.raise_http_error
+        resp
       end
     end
 
     def delete(path, query = nil)
       url = File.join(@base_url, @base_path, path)
-      url += "?#{query_string(query)}" unless query.nil?
+      url += "?%s" % query_string(query) unless query.nil?
 
       if log_activity?
         resp = nil
@@ -176,16 +191,22 @@ module Palmade::HttpService
 
     protected
 
+    def setup_oauth
+      @oauth_consumer = create_oauth_consumer(@oauth_config)
+
+      raise OauthError, "OAuth echo @oauth_consumer is nil" if @oauth_consumer.nil?
+    end
+
     def setup_oauth_echo
-      oauth_config = @oauth_echo_consumer_config
-
-      @oauth_echo_consumer = ::OAuth::Consumer.new(oauth_config[:key], oauth_config[:secret], { :site => oauth_config[:site] })
-      @oauth_echo_auth_verification_url = oauth_config[:auth_verification_url]
-
-      Palmade::HttpService::Http.use_oauth
+      @oauth_echo_consumer = create_oauth_consumer(@oauth_echo_config)
+      @oauth_echo_auth_verification_url = @oauth_echo_config['auth_verification_url']
 
       raise OauthEchoError, "OAuth echo @oauth_echo_consumer is nil" if @oauth_echo_consumer.nil?
       raise OAuthEchoError, "OAuth echo @oauth_echo_auth_verification_url is nil" if @oauth_echo_auth_verification_url.nil?
+    end
+
+    def create_oauth_consumer(oauth_config)
+      ::OAuth::Consumer.new(oauth_config['consumer_key'], oauth_config['consumer_secret'], { :site => oauth_config['options']['site'] })
     end
 
     def auth(username, password = nil, scheme = :basic)
@@ -212,18 +233,18 @@ module Palmade::HttpService
           # on set
           @http.http_auth_types = :basic or :any
           @http.userpwd = "#{@auth_credentials[0]}:#{@auth_credentials[1]}"
+
         when :oauth
-          @http.http_auth_types = :any
+          raise "OAuth consumer object not set (@oauth_consumer is nil)" if @oauth_consumer.nil?
 
-          raise "OAuth consumer object not set (@auth_consumer is nil)" if @auth_consumer.nil?
-
-          oauth_token = OAuth::Token.new(@auth_credentials[0], @auth_credentials[1])
-          oauth_helper = OAuth::Client::Helper.new(@http,
+          oauth_token = ::OAuth::Token.new(@auth_credentials[0], @auth_credentials[1])
+          oauth_helper = ::OAuth::Client::Helper.new(@http,
                                                    { :http_method => meth.to_s.upcase,
                                                      :consumer => @oauth_consumer,
                                                      :token => oauth_token,
                                                      :request_uri => @http.url }.merge(@auth_params))
           @http.headers["Authorization"] = auth = oauth_helper.header
+
         when :oauth_echo
           raise OAuthEchoError, "OAuth echo @oauth_echo_consumer is nil" if @oauth_echo_consumer.nil?
           raise OAuthEchoError, "OAuth echo @oauth_echo_auth_verification_url is nil" if @oauth_echo_auth_verification_url.nil?
@@ -238,12 +259,14 @@ module Palmade::HttpService
 
           request['Content-Type'] = 'application/x-www-form-urlencoded'
           request.oauth!(http, @oauth_echo_consumer, oauth_token)
+
           @http.headers['Content-Type'] = 'application/x-www-form-urlencoded'
           @http.headers["X-Verify-Credentials-Authorization"] = request['Authorization']
           @http.headers["X-Auth-Service-Provider"] = @oauth_echo_auth_verification_url
 
           http = nil
           request = nil
+
         else
           # ignore
         end
@@ -396,3 +419,4 @@ module Palmade::HttpService
     end
   end
 end
+
